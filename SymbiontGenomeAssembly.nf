@@ -2,8 +2,7 @@
 
 params.reads="/path/to/forward-and-reverse/reads/*_{R1,R2}_001.fastq.gz"
 reads_ch=Channel.fromFilePairs(params.reads)
-params.unzippedReads="/same/path/to/forward-and-reverse/reads-but-gunzipped/*_{R1,R2}_001.fq"
-unzippedReads_ch=Channel.fromFilePairs(params.unzippedReads)
+reads_ch.into {reads_trimmomatic; reads_mindTheGap }
 params.reference='buchnera'
 params.ref_genome="/path/to/reference-genomes/in/own/directory/RefGenomes/${params.reference}/*.fna.gz"
 params.bwa_amb="/path/to/reference-genomes/in/own/directory/RefGenomes/${params.reference}/*.fna.gz.amb"
@@ -15,11 +14,11 @@ params.bwa_sa="/path/to/reference-genomes/in/own/directory/RefGenomes/${params.r
 process trimmomatic {
     publishDir "/path/to/forward-and-reverse/reads/${sample_id}/InitialAssembly/Trimmed/", mode: 'copy'
     tag "${sample_id}"
-    label 'alignment'
+    label params.label
     label 'wga' 
 
     input:
-    tuple val(sample_id), path(sample_files) from reads_ch
+    tuple val(sample_id), path(sample_files) from reads_trimmomatic
     
     output:
     tuple val(sample_id), file("${sample_id}_R1_paired.fastq.gz"), file("${sample_id}_R2_paired.fastq.gz") into trimmed_paired_reads_ch
@@ -43,7 +42,7 @@ process scaffoldAlignment {
     publishDir "/path/to/forward-and-reverse/reads/${sample_id}/SymbiontAssembly/${params.reference}/Alignment", mode: 'copy'
     tag "${sample_id}"
     tag "${params.reference}"
-    label 'alignment'
+    label params.label
     label 'wga'
 
     input:
@@ -73,7 +72,7 @@ process samToBam {
     publishDir "/path/to/forward-and-reverse/reads/${sample_id}/SymbiontAssembly/${params.reference}/Alignment", mode: 'copy'
     tag "${sample_id}"
     tag "${params.reference}"
-    label 'alignment'
+    label params.label
     label 'wga'
 
     input:
@@ -95,7 +94,7 @@ process compressSamToFastq {
     publishDir "/path/to/forward-and-reverse/reads/${sample_id}/SymbiontAssembly/${params.reference}/Alignment", mode: 'copy'
     tag "${sample_id}"
     tag "${params.reference}"
-    label 'alignment'
+    label params.label
     label 'tabix'
 
     input:
@@ -112,9 +111,8 @@ process compressSamToFastq {
 
 
 process minia{
-    publishDir "/path/to/forward-and-reverse/reads/${sample_id}/SymbiontAssembly/${params.reference}/Minia", mode: 'copy'
     tag "${sample_id}"
-    label 'alignment'
+    label params.label
     tag "${params.reference}"
     label 'GATB'
 
@@ -132,28 +130,46 @@ process minia{
     """
 }
 
-process GapFiller {
-    publishDir "/path/to/forward-and-reverse/reads/${sample_id}/SymbiontAssembly/${params.reference}/GapFilled", mode: 'copy'
+process compressMinia {
+    publishDir "/path/to/forward-and-reverse/reads/${sample_id}/SymbiontAssembly/${params.reference}/Minia", mode: 'copy'
     tag "${sample_id}"
     tag "${params.reference}"
-    label 'alignment'
-    label 'mtg'
+    label params.label
+    label 'tabix'
 
     input:
-    tuple val(sample_id), file("${sample_id}_${params.reference}_assembly.fa") from minia_deNovo_ch
-    tuple val(sample_id), path(sample_files) from unzippedReads_ch
+    tuple val(sample_id), file("${sample_id}_${params.reference}_assembly.fasta") from minia_deNovo_ch
 
     output:
-    tuple val(sample_id), file("${sample_id}_${params.reference}_gapFilledout.insertions.fa"),file("${sample_id}_${params.reference}_gapFilledout.gfa"), file("${sample_id}_${params.reference}_gapFilledout.info.txt") into gap_filler_ch
+    tuple val(sample_id), file("${sample_id}_${params.reference}_assembly.fasta.gz") into minia_deNovo_ch_gz
 
     script:
     """
-    cat $sample_files > ${sample_id}_reads.fq
+    bgzip -@ ${task.cpus} ${sample_id}_${params.reference}_assembly.fasta
+    """
+}
+
+process GapFiller {
+    tag "${sample_id}"
+    tag "${params.reference}"
+    label params.label
+    label 'mtg'
+
+    input:
+    tuple val(sample_id), file("${sample_id}_${params.reference}_assembly.fasta.gz") from minia_deNovo_ch_gz
+    tuple val(sample_id), path(sample_files) from reads_mindTheGap
+
+    output:
+    tuple val(sample_id), file("${sample_id}_${params.reference}_gapFilled.insertions.fasta"),file("${sample_id}_${params.reference}_gapFilled.gfa"), file("${sample_id}_${params.reference}_gapFilled.info.txt"), file("${sample_id}_${params.reference}_gapFilled.h5"), file("${sample_id}_${params.reference}_gapFilled_seed_dictionary.fasta") into gap_filler_ch
+
+    script:
+    """
+    cat $sample_files > ${sample_id}_reads.fastq.gz
 
     MindTheGap fill \
     -nb-cores ${task.cpus} \
-    -in ${sample_id}_reads.fq \
-    -contig ${sample_id}_${params.reference}_assembly.fa \
+    -in ${sample_id}_reads.fastq.gz \
+    -contig ${sample_id}_${params.reference}_assembly.fasta.gz \
     -kmer-size 51 \
     -abundance-min 5 \
     -max-nodes 300 \
@@ -166,18 +182,19 @@ process compressGapFiller {
     publishDir "/path/to/forward-and-reverse/reads/${sample_id}/SymbiontAssembly/${params.reference}/GapFilled", mode: 'copy'
     tag "${sample_id}"
     tag "${params.reference}"
-    label 'alignment'
+    label params.label
     label 'tabix'
 
     input:
-    tuple val(sample_id), file("${sample_id}_${params.reference}_gapFilledout.insertions.fa"),file("${sample_id}_${params.reference}_gapFilledout.gfa") from gap_filler_ch
+    tuple val(sample_id), file("${sample_id}_${params.reference}_gapFilled.insertions.fasta"),file("${sample_id}_${params.reference}_gapFilled.gfa"), file("${sample_id}_${params.reference}_gapFilled_seed_dictionary.fasta") from gap_filler_ch
 
     output:
-    tuple val(sample_id), file("${sample_id}_${params.reference}_gapFilledout.insertions.fa.gz"),file("${sample_id}_${params.reference}_gapFilledout.gfa.gz") into gap_filler_ch_gz
+    tuple val(sample_id), file("${sample_id}_${params.reference}_gapFilled.insertions.fasta.gz"),file("${sample_id}_${params.reference}_gapFilled.gfa.gz"), file("${sample_id}_${params.reference}_gapFilled_seed_dictionary.fasta.gz") into gap_filler_ch_gz
 
     script:
     """
-    bgzip -@ ${task.cpus} ${sample_id}_${params.reference}_gapFilledout.insertions.fa
-    bgzip -@ ${task.cpus} ${sample_id}_${params.reference}_gapFilledout.gfa
+    bgzip -@ ${task.cpus} ${sample_id}_${params.reference}_gapFilled.insertions.fasta
+    bgzip -@ ${task.cpus} ${sample_id}_${params.reference}_gapFilled.gfa
+    bgzip -@ ${task.cpus} ${sample_id}_${params.reference}_gapFilled_seed_dictionary.fasta
     """
 }
