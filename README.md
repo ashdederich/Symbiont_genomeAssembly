@@ -15,9 +15,43 @@ What files are needed for each program?
         - The nextflow.config file paths to the Singulariy/Docker containers need to be updated to where ~your~ Singularity/Docker containers are located.
 - Singularity OR Docker:
     * Most of the programs needed, such as Trimmomatic, bwa, and samtools can be located in the container I created: https://cloud.sylabs.io/library/ashdederich/default/wholegenomeassembly
-    * The tabix container, used to gzip files, can be downloaded from: https://quay.io/repository/biocontainers/tabix?tab=tags
-    * The Minia pipeline container for de-novo assembly of contigs at multiple k-mer lengths can be downloaded from: https://hub.docker.com/r/cimendes/gatb-minia-pipeline
-    * The MindTheGap container for gap-filling between contigs can be downloaded from: https://quay.io/repository/biocontainers/mindthegap?tab=tags
+        - You can download this container by running this command: 
+        ```
+        singularity pull library://ashdederich/default/wholegenomeassembly:sha256.485b76cef4b293e6a6042aca7e2879ba75272482d8a462e90aa4372383461a38
+        ```
+    * The tabix container, used to gzip files, can be downloaded by: 
+        - Downloading directly from this link: https://quay.io/repository/biocontainers/tabix?tab=tags
+        - Or by running this command:
+            * ...with Singularity:
+            ```
+            singularity pull docker://quay.io/biocontainers/tabix:latest
+            ```
+            * ...with Docker:
+            ```
+            docker pull biocontainers/tabix:latest
+            ```
+    * The Minia pipeline container for de-novo assembly of contigs at multiple k-mer lengths, can be downloaded by:
+        - Downloading directly from this link: https://hub.docker.com/r/cimendes/gatb-minia-pipeline
+        - Or by running this command:
+            * ...with Singularity:
+            ```
+            singularity pull docker://cimendes/gatb-minia-pipeline:latest
+            ```
+            * ...with Docker:
+            ```
+            docker pull cimendes/gatb-minia-pipeline:latest
+            ```
+    * The MindTheGap container for gap-filling between contigs, can be downloaded by: 
+         - Downloading directly from this link: https://quay.io/repository/biocontainers/mindthegap?tab=tags
+        - Or by running this command:
+            * ...with Singularity:
+            ```
+            singularity pull docker://quay.io/biocontainers/mindthegap:2.2.2--h9a82719_1
+            ```
+            * ...with Docker:
+            ```
+            docker pull biocontainers/mindthegap:2.2.2--h9a82719_1
+            ```
 - Slurm:
     * Slurm, or the job scheduler of choice, only needs to be specified in the nextflow.config file
 
