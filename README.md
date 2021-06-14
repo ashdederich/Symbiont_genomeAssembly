@@ -61,7 +61,7 @@ Most importantly, how should you execute all files and assemble a genome?
             * Your bin folder with all extra scripts that you may use.
         - Your reference genome folder. This should have separate folders for each reference genome. Each reference genome directory contained in this directory will have:
             * Your .fasta file for the reference genome.
-            * Your indexed files of this reference genome. This is to save time and memory during the assembly proceess. To index your reference genome, go to the correct reference genome directory and type: '''bwa index <reference_genome.fasta>'''
-- Once your directories are created, go to your nextflow documents directory and run: '''nextflow run SymbiontGenomeAssembly.nf'''
-    * If your nextflow job is ever interrupted, and you would like to pick up from where you left off, you can add the resume tag: '''nextflow run SymbiontGenomeAssembly.nf -resume'''
+            * Your indexed files of this reference genome. This is to save time and memory during the assembly proceess. To index your reference genome, go to the correct reference genome directory and type: ```bwa index <reference_genome.fasta>```
+- Once your directories are created, go to your nextflow documents directory and run: ```nextflow run SymbiontGenomeAssembly.nf```
+    * If your nextflow job is ever interrupted, and you would like to pick up from where you left off, you can add the resume tag: ```nextflow run SymbiontGenomeAssembly.nf -resume```
 
